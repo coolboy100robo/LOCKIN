@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LOCK IN</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap");
+
+      body {
+        background: linear-gradient(135deg, #000000, #434343);
+        color: #ffffff;
+        font-family: "Roboto", sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        margin: 0;
+        padding: 20px;
+        overflow: hidden;
+        position: relative;
+        transition: all 0.4s ease;
+      }
+
+      body.light-mode {
+        background: linear-gradient(135deg, #ffffff, #cccccc);
+        color: #000000;
+      }
+
+      h1 {
+        font-size: 4rem;
+        margin: 20px 0;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+        animation: fadeIn 1s ease-in-out;
+        transition: all 0.4s ease;
+      }
+
+      body.light-mode h1 {
+        color: black;
+        text-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+      }
+
+      .container {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(15px);
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        text-align: center;
+        width: 100%;
+        max-width: 400px;
+        animation: slideIn 0.5s ease-in-out;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.4s ease;
+      }
+
+      #timesList {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        font-size: 1.2rem;
+        margin-top: 20px;
+        padding: 0;
+        border-radius: 10px;
+      }
+
+      #timesList p {
+        margin: 0;
+        font-weight: bold;
+        color: #ffffff;
+        transition: transform 0.3s ease, color 0.4s ease;
+      }
+
+      body.light-mode #timesList p {
+        color: #000000;
+      }
+
+      #timesList p:hover {
+        transform: scale(1.05);
+      }
+
+      #timer {
+        font-size: 3rem;
+        color: #ffffff;
+        text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        transition: all 0.3s ease;
+      }
+
+      body.light-mode #timer {
+        color: #000000;
+        text-shadow: none;
+      }
+
+      button {
+        background-color: transparent;
+        border: 2px solid #ffffff;
+        color: #ffffff;
+        padding: 15px 40px;
+        font-size: 1.5rem;
+        border-radius: 10px;
+        cursor: pointer;
+        margin-top: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      button::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 300%;
+        height: 300%;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        transition: transform 0.5s ease;
+        z-index: 0;
+      }
+
+      button:hover::before {
+        transform: translate(-50%, -50%) scale(1);
+      }
+
+      button:hover {
+        color: #000000;
+      }
+
+      body.light-mode button {
+        color: #000000;
+        border: 2px solid #000000;
+      }
+
+      .lockOutButton {
+        position: absolute;
+        bottom: 20px;
+        background-color: transparent;
+        border: 2px solid #ffffff;
+        color: #ffffff;
+        padding: 10px 20px;
+        font-size: 1rem;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      body.light-mode .lockOutButton {
+        color: #000000;
+        border: 2px solid #000000;
+      }
+
+      .lockOutButton:hover {
+        color: #000000;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateY(-20px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+
+      .cursor-glow {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        transition: width 0.3s ease, height 0.3s ease;
+        background: radial-gradient(
+          circle,
+          rgba(255, 255, 255, 0.5) 0%,
+          rgba(255, 255, 255, 0) 70%
+        );
+        z-index: 10;
+        transform: translate(-50%, -50%);
+      }
+
+      .fullscreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, #000000, #434343);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 20;
+        transition: all 0.3s ease;
+      }
+
+      body.light-mode .fullscreen {
+        background: linear-gradient(135deg, #ffffff, #cccccc);
+      }
+
+      .darkModeToggle {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        cursor: pointer;
+        width: 40px;
+        height: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>LOCK IN</h1>
+    <div class="container">
+      <div id="timesList"></div>
+      <button id="actionBtn">Lock In</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+
+    <img
+      src="bulbb.png"
+      alt="Toggle Dark Mode"
+      class="darkModeToggle"
+      id="toggleBtn"
+      height="70px"
+      width="70px"
+    />
+    <div class="cursor-glow" id="cursorGlow"></div>
+    <audio id="clickSound" src="click.mp3"></audio>
+
+    <script>
+      const btn = document.getElementById("actionBtn");
+      const timesList = document.getElementById("timesList");
+      const cursorGlow = document.getElementById("cursorGlow");
+      const resetBtn = document.getElementById("resetBtn");
+      const toggleBtn = document.getElementById("toggleBtn");
+      const clickSound = document.getElementById("clickSound");
+      let startTime;
+      let intervalId;
+      let isDarkMode = true;
+
+      // Play sound on all buttons
+      document.querySelectorAll("button").forEach((button) => {
+        button.addEventListener("click", () => {
+          clickSound.currentTime = 0;
+          clickSound.play();
+        });
+      });
+
+      btn.addEventListener("click", () => {
+        if (btn.textContent === "Lock In") {
+          startTime = Date.now();
+          showFullscreenTimer();
+        }
+      });
+
+      function showFullscreenTimer() {
+        const fullscreenDiv = document.createElement("div");
+        fullscreenDiv.className =
+          "fullscreen" + (isDarkMode ? "" : " light-mode");
+        fullscreenDiv.innerHTML = `
+          <div id="timer" style="font-size: 5rem; ${
+            isDarkMode ? "color:white;" : "color:black;"
+          }">00:00.000</div>
+          <button class="lockOutButton" id="lockOutBtn" style="${
+            !isDarkMode ? "color:black; border:2px solid black;" : ""
+          }">Lock Out</button>
+        `;
+        document.body.appendChild(fullscreenDiv);
+
+        const lockOutBtn = document.getElementById("lockOutBtn");
+        lockOutBtn.addEventListener("click", () => {
+          clearInterval(intervalId);
+          const elapsed = Date.now() - startTime;
+          const record = document.createElement("p");
+          record.textContent = formatTime(elapsed);
+          timesList.appendChild(record);
+          document.body.removeChild(fullscreenDiv);
+          btn.textContent = "Lock In";
+        });
+
+        intervalId = setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          fullscreenDiv.querySelector("#timer").textContent =
+            formatTime(elapsed);
+        }, 50);
+      }
+
+      function formatTime(ms) {
+        const date = new Date(ms);
+        const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+        const seconds = String(date.getUTCSeconds()).padStart(2, "0");
+        const millis = String(date.getUTCMilliseconds()).padStart(3, "0");
+        return `${minutes}:${seconds}.${millis}`;
+      }
+
+      resetBtn.addEventListener("click", () => {
+        timesList.innerHTML = "";
+      });
+
+      toggleBtn.addEventListener("click", () => {
+        clickSound.play();
+        isDarkMode = !isDarkMode;
+        document.body.classList.toggle("light-mode", !isDarkMode);
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        cursorGlow.style.width = "60px";
+        cursorGlow.style.height = "60px";
+        cursorGlow.style.left = `${e.clientX}px`;
+        cursorGlow.style.top = `${e.clientY}px`;
+      });
+
+      const container = document.querySelector(".container");
+      container.addEventListener("mouseenter", () => {
+        cursorGlow.style.width = "30px";
+        cursorGlow.style.height = "30px";
+      });
+
+      container.addEventListener("mouseleave", () => {
+        cursorGlow.style.width = "60px";
+        cursorGlow.style.height = "60px";
+      });
+
+    </script>
+    
+  </body>
+</html>
