@@ -2,10 +2,61 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>LOCK IN</title>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap");
+
+      .toggleTimerButton {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background-color: transparent;
+        border: 2px solid #ffffff;
+        color: #ffffff;
+        padding: 10px 20px;
+        font-size: 1rem;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: color 0.3s ease;
+        overflow: hidden;
+        z-index: 1;
+      }
+
+      .toggleTimerButton::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 300%;
+        height: 300%;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        transform: translate(-50%, -50%) scale(0);
+        transition: transform 0.5s ease;
+        z-index: -1;
+      }
+
+      .toggleTimerButton:hover::before {
+        transform: translate(-50%, -50%) scale(1);
+      }
+
+      .toggleTimerButton:hover {
+        color: #000000;
+      }
+
+      body.light-mode .toggleTimerButton {
+        color: #000000;
+        border: 2px solid #000000;
+      }
+
+      body.light-mode .toggleTimerButton::before {
+        background: rgba(0, 0, 0, 0.1);
+      }
+
+      body.light-mode .toggleTimerButton:hover {
+        color: #ffffff;
+      }
 
       body {
         background: linear-gradient(135deg, #000000, #434343);
@@ -54,6 +105,9 @@
         position: relative;
         overflow: hidden;
         transition: all 0.4s ease;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
       }
 
       #timesList {
@@ -61,9 +115,11 @@
         flex-direction: column;
         gap: 10px;
         font-size: 1.2rem;
-        margin-top: 20px;
+        margin-top: 10px;
         padding: 0;
         border-radius: 10px;
+        max-height: 150px;
+        overflow-y: auto;
       }
 
       #timesList p {
@@ -101,12 +157,13 @@
         font-size: 1.5rem;
         border-radius: 10px;
         cursor: pointer;
-        margin-top: 20px;
+        margin-top: 0;
         text-transform: uppercase;
         letter-spacing: 2px;
         transition: all 0.3s ease;
         position: relative;
         overflow: hidden;
+        user-select: none;
       }
 
       button::before {
@@ -147,6 +204,7 @@
         border-radius: 5px;
         cursor: pointer;
         transition: all 0.3s ease;
+        user-select: none;
       }
 
       body.light-mode .lockOutButton {
@@ -205,6 +263,7 @@
         justify-content: center;
         z-index: 20;
         transition: all 0.3s ease;
+        padding: 20px;
       }
 
       body.light-mode .fullscreen {
@@ -218,6 +277,28 @@
         cursor: pointer;
         width: 40px;
         height: 40px;
+        user-select: none;
+      }
+
+      /* Scrollbar for timesList */
+      #timesList::-webkit-scrollbar {
+        width: 6px;
+      }
+      #timesList::-webkit-scrollbar-thumb {
+        background-color: rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+      }
+      body.light-mode #timesList::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.2);
+      }
+
+      /* Extra buttons container */
+      .extra-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 10px;
+        flex-wrap: wrap;
       }
     </style>
   </head>
@@ -226,7 +307,13 @@
     <div class="container">
       <div id="timesList"></div>
       <button id="actionBtn">Lock In</button>
+      <button id="stopwatchToggleBtn">Stopwatch Mode</button>
       <button id="resetBtn">Reset</button>
+      <div class="extra-buttons">
+        <button id="btn1">Focus Mode</button>
+        <button id="btn2">Copy Last Time</button>
+        <button id="btn3">Clear Clipboard</button>
+      </div>
     </div>
 
     <img
@@ -234,107 +321,406 @@
       alt="Toggle Dark Mode"
       class="darkModeToggle"
       id="toggleBtn"
-      height="70px"
-      width="70px"
+      height="70"
+      width="70"
+      draggable="false"
     />
     <div class="cursor-glow" id="cursorGlow"></div>
     <audio id="clickSound" src="click.mp3"></audio>
 
     <script>
-      const btn = document.getElementById("actionBtn");
-      const timesList = document.getElementById("timesList");
-      const cursorGlow = document.getElementById("cursorGlow");
-      const resetBtn = document.getElementById("resetBtn");
-      const toggleBtn = document.getElementById("toggleBtn");
-      const clickSound = document.getElementById("clickSound");
-      let startTime;
-      let intervalId;
-      let isDarkMode = true;
+  // ===== ELEMENTS =====
+  const btn = document.getElementById("actionBtn");
+  const timesList = document.getElementById("timesList");
+  const cursorGlow = document.getElementById("cursorGlow");
+  const resetBtn = document.getElementById("resetBtn");
+  const toggleBtn = document.getElementById("toggleBtn");
+  const clickSound = document.getElementById("clickSound");
+  const stopwatchToggleBtn = document.getElementById("stopwatchToggleBtn");
 
-      // Play sound on all buttons
-      document.querySelectorAll("button").forEach((button) => {
-        button.addEventListener("click", () => {
-          clickSound.currentTime = 0;
-          clickSound.play();
-        });
-      });
+  // Extra buttons
+  const btn1 = document.getElementById("btn1"); // Focus Mode
+  const btn2 = document.getElementById("btn2"); // Copy last time
+  const btn3 = document.getElementById("btn3"); // Clear clipboard
 
-      btn.addEventListener("click", () => {
-        if (btn.textContent === "Lock In") {
-          startTime = Date.now();
-          showFullscreenTimer();
+  // ===== STATE =====
+  let startTime = null;          // timestamp when current run started
+  let intervalId = null;         // update interval
+  let isDarkMode = true;         // true = dark, false = light
+  let isStopwatchMode = false;   // false => Normal Lock In (count-up); true => Stopwatch (countdown)
+  let countdownTime = 0;         // milliseconds for countdown
+  let fullscreenDiv = null;      // currently mounted fullscreen element (if any)
+  let isFocusMode = false;       // Focus mode state
+  let beepOscillator = null;     // for WebAudio beeps
+  let audioCtx = null;
+
+  // ===== UTILS =====
+  function safePlayClick() {
+    // try/catch for browsers that block autoplay
+    try {
+      clickSound.currentTime = 0;
+      clickSound.play();
+    } catch (e) {}
+  }
+
+  function clearTimer() {
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  }
+
+  function removeFullscreen() {
+    clearTimer();
+    if (fullscreenDiv && fullscreenDiv.parentNode) {
+      fullscreenDiv.parentNode.removeChild(fullscreenDiv);
+    }
+    fullscreenDiv = null;
+    stopBeep();
+    startTime = null;
+  }
+
+  function formatTime(ms) {
+    const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return (
+      String(hours).padStart(2, "0") +
+      ":" +
+      String(minutes).padStart(2, "0") +
+      ":" +
+      String(seconds).padStart(2, "0")
+    );
+  }
+
+  // WebAudio beeper (used for last 5 seconds + final tone)
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  }
+  function startBeep(freq = 880) {
+    ensureAudioCtx();
+    stopBeep();
+    beepOscillator = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    beepOscillator.type = "sine";
+    beepOscillator.frequency.value = freq;
+    gain.gain.value = 0.001; // start tiny to prevent pops
+    beepOscillator.connect(gain);
+    gain.connect(audioCtx.destination);
+    beepOscillator.start();
+    // ramp to audible
+    gain.gain.exponentialRampToValueAtTime(0.12, audioCtx.currentTime + 0.02);
+    // attach reference for stopping
+    beepOscillator._gainNode = gain;
+  }
+  function stopBeep() {
+    try {
+      if (beepOscillator) {
+        if (beepOscillator._gainNode) {
+          beepOscillator._gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.02);
         }
-      });
+        beepOscillator.stop(audioCtx.currentTime + 0.03);
+      }
+    } catch (e) {}
+    beepOscillator = null;
+  }
 
-      function showFullscreenTimer() {
-        const fullscreenDiv = document.createElement("div");
-        fullscreenDiv.className =
-          "fullscreen" + (isDarkMode ? "" : " light-mode");
-        fullscreenDiv.innerHTML = `
-          <div id="timer" style="font-size: 5rem; ${
-            isDarkMode ? "color:white;" : "color:black;"
-          }">00:00.000</div>
-          <button class="lockOutButton" id="lockOutBtn" style="${
-            !isDarkMode ? "color:black; border:2px solid black;" : ""
-          }">Lock Out</button>
-        `;
-        document.body.appendChild(fullscreenDiv);
+  // ===== FULLSCREEN UI (shared for both modes) =====
+  function mountFullscreen(initialText) {
+    // ensure only one fullscreen exists
+    removeFullscreen();
 
-        const lockOutBtn = document.getElementById("lockOutBtn");
-        lockOutBtn.addEventListener("click", () => {
-          clearInterval(intervalId);
-          const elapsed = Date.now() - startTime;
-          const record = document.createElement("p");
-          record.textContent = formatTime(elapsed);
-          timesList.appendChild(record);
-          document.body.removeChild(fullscreenDiv);
-          btn.textContent = "Lock In";
-        });
+    fullscreenDiv = document.createElement("div");
+    fullscreenDiv.className = "fullscreen" + (isDarkMode ? "" : " light-mode");
+    fullscreenDiv.innerHTML = `
+      <div id="timer" style="font-size:5rem; ${isDarkMode ? "color:white;" : "color:black;"}">${initialText}</div>
+      <button class="lockOutButton" id="lockOutBtn" style="${!isDarkMode ? "color:black; border:2px solid black;" : ""}">${isStopwatchMode ? "Stop Stopwatch" : "Lock Out"}</button>
+      <button class="toggleTimerButton" id="toggleTimerBtn">Hide Timer</button>
+    `;
+    document.body.appendChild(fullscreenDiv);
 
-        intervalId = setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          fullscreenDiv.querySelector("#timer").textContent =
-            formatTime(elapsed);
-        }, 50);
+    const lockOutBtn = fullscreenDiv.querySelector("#lockOutBtn");
+    const toggleTimerBtn = fullscreenDiv.querySelector("#toggleTimerBtn");
+    const timerDisplay = fullscreenDiv.querySelector("#timer");
+
+    let hidden = false;
+
+    toggleTimerBtn.addEventListener("click", (e) => {
+      safePlayClick();
+      hidden = !hidden;
+      timerDisplay.style.display = hidden ? "none" : "block";
+      toggleTimerBtn.textContent = hidden ? "Show Timer" : "Hide Timer";
+    });
+
+    lockOutBtn.addEventListener("click", (e) => {
+      safePlayClick();
+      // For count-up: record elapsed
+      if (!isStopwatchMode && startTime) {
+        const elapsed = Date.now() - startTime;
+        const p = document.createElement("p");
+        p.textContent = formatTime(elapsed);
+        timesList.appendChild(p);
+      }
+      // For countdown: stop and do not record (user explicitly stopped)
+      removeFullscreen();
+    });
+
+    return { timerDisplay };
+  }
+
+  // ===== START / RUNNERS =====
+  function startCountUp() {
+    isStopwatchMode = false;
+    // mount fullscreen showing 00:00:00
+    const { timerDisplay } = mountFullscreen("00:00:00");
+    startTime = Date.now();
+    clearTimer();
+
+    // update more frequently than 1s for snappiness (250ms)
+    intervalId = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      timerDisplay.textContent = formatTime(elapsed);
+    }, 250);
+  }
+
+  function startCountdown(ms) {
+    if (ms <= 0) return;
+    isStopwatchMode = true;
+    countdownTime = ms;
+    const { timerDisplay } = mountFullscreen(formatTime(ms));
+    startTime = Date.now();
+    clearTimer();
+    stopBeep();
+
+    intervalId = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = countdownTime - elapsed;
+
+      if (remaining <= 0) {
+        // final
+        clearTimer();
+        timerDisplay.textContent = "00:00:00";
+        // final long beep
+        startBeep(440);
+        setTimeout(() => {
+          stopBeep();
+        }, 900);
+        // After short delay remove fullscreen
+        setTimeout(() => {
+          removeFullscreen();
+        }, 950);
+        return;
       }
 
-      function formatTime(ms) {
-        const date = new Date(ms);
-        const minutes = String(date.getUTCMinutes()).padStart(2, "0");
-        const seconds = String(date.getUTCSeconds()).padStart(2, "0");
-        const millis = String(date.getUTCMilliseconds()).padStart(3, "0");
-        return `${minutes}:${seconds}.${millis}`;
+      // beep behavior for last 5 seconds (short beeps each second)
+      if (remaining <= 5000) {
+        // compute whole-second remainder (so we beep on each new second)
+        const nextSecBoundary = Math.ceil(remaining / 1000) * 1000;
+        // if within last 5s, schedule brief beep pulses synced to second boundaries
+        // simple approach: if ms remainder modulo 1000 is small (<300ms) then start short beep
+        const msIntoSecond = remaining % 1000;
+        if (msIntoSecond <= 250) {
+          // start a short beep and stop after ~200ms
+          startBeep(1000 - Math.max(0, Math.floor((remaining / 1000) * 200)));
+          setTimeout(() => stopBeep(), 180);
+        }
       }
 
-      resetBtn.addEventListener("click", () => {
-        timesList.innerHTML = "";
-      });
+      timerDisplay.textContent = formatTime(remaining);
+    }, 120); // 120ms tick to allow earlier detection for smooth beeps
+  }
 
-      toggleBtn.addEventListener("click", () => {
-        clickSound.play();
-        isDarkMode = !isDarkMode;
-        document.body.classList.toggle("light-mode", !isDarkMode);
-      });
+  // ===== INPUT OVERLAY (countdown input screen) =====
+  function showTimeInputInterface() {
+    // ensure only one overlay
+    const inputOverlay = document.createElement("div");
+    inputOverlay.className = "fullscreen" + (isDarkMode ? "" : " light-mode");
+    inputOverlay.style.flexDirection = "column";
+    inputOverlay.style.gap = "15px";
+    inputOverlay.style.padding = "20px";
 
-      document.addEventListener("mousemove", (e) => {
-        cursorGlow.style.width = "60px";
-        cursorGlow.style.height = "60px";
-        cursorGlow.style.left = `${e.clientX}px`;
-        cursorGlow.style.top = `${e.clientY}px`;
-      });
+    inputOverlay.innerHTML = `
+      <h2 style="margin-bottom:10px; ${isDarkMode ? "color:white;" : "color:black;"}">Set Countdown Time</h2>
+      <div style="display:flex; gap:10px; justify-content:center; align-items:center; flex-wrap:wrap;">
+        <div>
+          <label for="hoursInput" style="${isDarkMode ? "color:white" : "color:black"}">Hours</label><br/>
+          <input type="number" id="hoursInput" min="0" max="99" value="0" style="width:70px; font-size:1.4rem; text-align:center; border-radius:8px; border:1px solid ${isDarkMode ? "white" : "black"}; background:transparent; ${isDarkMode ? "color:white" : "color:black"}"/>
+        </div>
+        <div>
+          <label for="minutesInput" style="${isDarkMode ? "color:white" : "color:black"}">Minutes</label><br/>
+          <input type="number" id="minutesInput" min="0" max="59" value="0" style="width:70px; font-size:1.4rem; text-align:center; border-radius:8px; border:1px solid ${isDarkMode ? "white" : "black"}; background:transparent; ${isDarkMode ? "color:white" : "color:black"}"/>
+        </div>
+        <div>
+          <label for="secondsInput" style="${isDarkMode ? "color:white" : "color:black"}">Seconds</label><br/>
+          <input type="number" id="secondsInput" min="0" max="59" value="0" style="width:70px; font-size:1.4rem; text-align:center; border-radius:8px; border:1px solid ${isDarkMode ? "white" : "black"}; background:transparent; ${isDarkMode ? "color:white" : "color:black"}"/>
+        </div>
+      </div>
 
-      const container = document.querySelector(".container");
-      container.addEventListener("mouseenter", () => {
-        cursorGlow.style.width = "30px";
-        cursorGlow.style.height = "30px";
-      });
+      <div style="display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; justify-content:center;">
+        <button id="startCountdownBtn" style="padding:12px 28px; font-size:1.2rem; border-radius:10px; border:2px solid ${isDarkMode ? "white" : "black"}; ${isDarkMode ? "color:white" : "color:black"}; background:transparent;">
+          Start Countdown
+        </button>
+        <button id="cancelCountdownBtn" style="padding:12px 28px; font-size:1.2rem; border-radius:10px; border:2px solid ${isDarkMode ? "white" : "black"}; ${isDarkMode ? "color:white" : "color:black"}; background:transparent;">
+          Cancel
+        </button>
+      </div>
+    `;
 
-      container.addEventListener("mouseleave", () => {
-        cursorGlow.style.width = "60px";
-        cursorGlow.style.height = "60px";
-      });
+    document.body.appendChild(inputOverlay);
 
-    </script>
-    
-  </body>
+    const startBtn = inputOverlay.querySelector("#startCountdownBtn");
+    const cancelBtn = inputOverlay.querySelector("#cancelCountdownBtn");
+
+    startBtn.addEventListener("click", () => {
+      safePlayClick();
+      const h = parseInt(inputOverlay.querySelector("#hoursInput").value) || 0;
+      const m = parseInt(inputOverlay.querySelector("#minutesInput").value) || 0;
+      const s = parseInt(inputOverlay.querySelector("#secondsInput").value) || 0;
+
+      if (h < 0 || m < 0 || s < 0 || m > 59 || s > 59) {
+        alert("Invalid time. Please check values.");
+        return;
+      }
+
+      const ms = (h * 3600 + m * 60 + s) * 1000;
+      if (ms <= 0) {
+        alert("Please enter a time > 0.");
+        return;
+      }
+
+      // clean up overlay and start countdown
+      inputOverlay.remove();
+      startCountdown(ms);
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      safePlayClick();
+      inputOverlay.remove();
+    });
+  }
+
+  // ===== BUTTON HOOKUPS / FEATURES =====
+  // Play click sound for every button (helpful for UX)
+  document.querySelectorAll("button").forEach((b) => {
+    b.addEventListener("click", safePlayClick);
+  });
+
+  // Focus Mode toggle
+  btn1.addEventListener("click", () => {
+    isFocusMode = !isFocusMode;
+    if (isFocusMode) {
+      timesList.style.display = "none";
+      document.querySelector(".extra-buttons").style.display = "none";
+      btn1.textContent = "Exit Focus Mode";
+    } else {
+      timesList.style.display = "flex";
+      document.querySelector(".extra-buttons").style.display = "flex";
+      btn1.textContent = "Focus Mode";
+    }
+  });
+
+  // Copy last recorded time to clipboard
+  btn2.addEventListener("click", async () => {
+    const last = timesList.lastElementChild;
+    if (!last) {
+      alert("No recorded times to copy.");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(last.textContent);
+      alert(`Copied last time: ${last.textContent}`);
+    } catch {
+      alert("Failed to copy to clipboard.");
+    }
+  });
+
+  // Clear clipboard
+  btn3.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText("");
+      alert("Clipboard cleared.");
+    } catch {
+      alert("Failed to clear clipboard.");
+    }
+  });
+
+  // Stopwatch mode toggle button
+  stopwatchToggleBtn.addEventListener("click", () => {
+    isStopwatchMode = !isStopwatchMode;
+    clearTimer();
+    startTime = null;
+    removeFullscreen();
+    timesList.innerHTML = "";
+    if (isStopwatchMode) {
+      stopwatchToggleBtn.textContent = "Normal Mode";
+      btn.textContent = "Enable Timer";
+    } else {
+      stopwatchToggleBtn.textContent = "Stopwatch Mode";
+      btn.textContent = "Lock In";
+    }
+  });
+
+  // Action button (Lock In / Enable Timer)
+  btn.addEventListener("click", () => {
+    if (!isStopwatchMode) {
+      // Normal Lock In (count-up)
+      startCountUp();
+    } else {
+      // Stopwatch (countdown) => show input overlay
+      showTimeInputInterface();
+    }
+  });
+
+  // Reset: clear all records and timers
+  resetBtn.addEventListener("click", () => {
+    safePlayClick();
+    clearTimer();
+    stopBeep();
+    startTime = null;
+    timesList.innerHTML = "";
+    removeFullscreen();
+  });
+
+  // Dark mode toggle (image button)
+  toggleBtn.addEventListener("click", () => {
+    safePlayClick();
+    isDarkMode = !isDarkMode;
+    document.body.classList.toggle("light-mode", !isDarkMode);
+    // if fullscreen or overlay is present, re-render to apply new theme
+    if (fullscreenDiv) {
+      // preserve timer text
+      const timerEl = fullscreenDiv.querySelector("#timer");
+      const text = timerEl ? timerEl.textContent : (isStopwatchMode ? formatTime(countdownTime) : "00:00:00");
+      removeFullscreen();
+      mountFullscreen(text);
+    }
+  });
+
+  // Cursor glow
+  document.addEventListener("mousemove", (e) => {
+    cursorGlow.style.left = e.pageX + "px";
+    cursorGlow.style.top = e.pageY + "px";
+    cursorGlow.style.width = "150px";
+    cursorGlow.style.height = "150px";
+  });
+
+  // ESC closes fullscreen if present
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && fullscreenDiv) {
+      safePlayClick();
+      removeFullscreen();
+    }
+  });
+
+  // Ensure any running timers are cleaned up on unload
+  window.addEventListener("beforeunload", () => {
+    clearTimer();
+    stopBeep();
+  });
+</script>
+
+</body>
 </html>
